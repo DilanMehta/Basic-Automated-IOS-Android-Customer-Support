@@ -1,0 +1,110 @@
+// ======================
+// GLOBAL CONFIGURATION
+// ======================
+const APP_NAME = "App Name";
+const SUPPORT_TEAM_NAMES = ["Name 1", "Name 2", "Name 3", "Name 4"];
+const SUPPORT_TEAM_EMAILS = [
+  "name1@gmail.com",
+  "name2@gmail.com",
+  "name3@gmail.com"
+];
+const CC_EMAIL = "contName@gmail.com";
+const REFUND_CODE = "CODE HERE";
+
+function autoDraftSupportReplies() {
+  const labelName = "AUTO DRAFT SUPPORT";
+  const label = getOrCreateLabel(labelName);
+  const now = new Date();
+  const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+  const gmailDate = Utilities.formatDate(oneHourAgo, Session.getScriptTimeZone(), "yyyy/MM/dd");
+
+  const threads = GmailApp.search(
+    `in:inbox (Refund OR Bug OR Issue OR Cancel OR Refunding OR Cancellation) after:${gmailDate} -label:"${labelName}"`
+  ).slice(0, 20);
+
+  const refundRegex = /\b(refund|cancel|cancellation|refunding|subscription)\b/i;
+  const bugRegex = /\b(bug|issue|error|glitch|problem)\b/i;
+
+  let refundCount = 0;
+  let bugCount = 0;
+
+  const refundResponse = `
+Hi there!<br><br>
+Thank you for reaching out. I’m so sorry if you didn’t have a good ${APP_NAME} experience. We’ve contacted Apple/Google Play to process your refund. Please send your order ID, ${APP_NAME} account name, and whether you downloaded via Google Play or the App Store.<br><br>
+To speed things up, you can also request the refund directly:<br>
+• <a href="https://reportaproblem.apple.com/">Apple Refund Request</a><br>
+• <a href="https://support.google.com/googleplay/answer/15574897?hl=en">Android Refund Request</a><br><br>
+Include a screenshot of this message showing that we approved the refund. If Apple doesn’t issue it within a week, we’ll reimburse via bank transfer.<br><br>
+As a remedy, here’s free access to ${APP_NAME} with code <b>${REFUND_CODE}</b>. We’d love to make things right.<br><br>
+Feel free to reply if there's anything else we can do!<br><br>
+Best,<br>
+${SUPPORT_TEAM_NAMES[0]} | ${APP_NAME} Customer Success
+`;
+
+  const bugResponse = `
+Hi there!<br><br>
+Thank you for reaching out. I’m so sorry if you didn’t have a good ${APP_NAME} experience.<br><br>
+We noted your bug and forwarded it to the dev team. Could you please send a screen recording, your device name, and your user email? We’d be happy to offer you free ${APP_NAME} Pro as well as a gift card from one of our grocery partners.<br><br>
+Feel free to reply if there's anything else we can do!<br><br>
+Best,<br>
+${SUPPORT_TEAM_NAMES[0]} | ${APP_NAME} Customer Success
+`;
+
+  threads.forEach(thread => {
+    const messages = thread.getMessages();
+    const lastMessage = messages[messages.length - 1];
+    const lastMessageDate = lastMessage.getDate();
+
+    if (lastMessageDate < oneHourAgo) return;
+
+    const hasReplied = messages.some(msg =>
+      !msg.isDraft() && msg.getFrom().includes(Session.getActiveUser().getEmail())
+    );
+
+    const lastMessageFromOther = !lastMessage.getFrom().includes(Session.getActiveUser().getEmail());
+    const body = lastMessage.getPlainBody();
+    const subject = lastMessage.getSubject();
+
+    let draftBody = null;
+
+    if (refundRegex.test(body) || refundRegex.test(subject)) {
+      draftBody = refundResponse;
+    } else if (bugRegex.test(body) || bugRegex.test(subject)) {
+      draftBody = bugResponse;
+    }
+
+    if (!hasReplied && lastMessageFromOther && draftBody) {
+      thread.createDraftReply(draftBody, {
+        cc: CC_EMAIL,
+        htmlBody: draftBody
+      });
+      thread.addLabel(label);
+      Logger.log(`Draft reply created for: ${lastMessage.getFrom()}`);
+
+      if (draftBody === refundResponse) refundCount++;
+      if (draftBody === bugResponse) bugCount++;
+    }
+  });
+
+  const currentHourEST = Utilities.formatDate(new Date(), "America/New_York", "H");
+  const shouldSend = refundCount + bugCount > 0 && currentHourEST >= 10 && currentHourEST <= 17;
+
+  if (shouldSend) {
+    const subject = `${APP_NAME} Support Emails Drafted`;
+    const body =
+      `${refundCount} refund emails drafted\n` +
+      `${bugCount} bug emails drafted\n\n` +
+      `Sign into Gmail and open ${APP_NAME} drafts with this link:\n` +
+      `https://mail.google.com/mail/u/0/?tab=rm&ogbl#drafts`;
+
+    GmailApp.sendEmail(SUPPORT_TEAM_EMAILS.join(','), CC_EMAIL, subject, body);
+  }
+}
+
+function getOrCreateLabel(name) {
+  let label = GmailApp.getUserLabelByName(name);
+  if (!label) {
+    label = GmailApp.createLabel(name);
+  }
+  return label;
+}
