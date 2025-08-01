@@ -75,14 +75,14 @@ At the top of the script, configure these:
 
 ```javascript
 const APP_NAME = "Sizzle";
-const SUPPORT_TEAM_NAMES = ["Lily", "Dilan", "Alexa", "Benjamin"];
+const SUPPORT_TEAM_NAMES = ["Name1", "Name2", "Name3", "Name4"];
 const SUPPORT_TEAM_EMAILS = [
-  "alexa@joinsizzle.app",
-  "dilan@joinsizzle.app",
-  "benjamin@joinsizzle.app"
+  "name@website.app",
+  "name@website.app",
+  "name@website.app"
 ];
-const CC_EMAIL = "benjamin@joinsizzle.app";
-const REFUND_CODE = "528511";
+const CC_EMAIL = "name@website.app";
+const REFUND_CODE = "Refund code";
 ```
 
 You can change `APP_NAME`, `CC_EMAIL`, or add more team members as needed.
